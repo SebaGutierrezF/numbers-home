@@ -7,24 +7,26 @@ const countryCoordinates = {
   'GB': { lat: 55.3781, lng: -3.4360 },
   'ES': { lat: 40.4637, lng: -3.7492 },
   'CL': { lat: -35.6751, lng: -71.5430 },
-  // Añadir más países según sea necesario
 };
 
 let map = null;
+let marker = null;
 
 // Función para inicializar el mapa
 function initMap() {
+  const mapContainer = document.getElementById('map');
+  if (!mapContainer) {
+    console.error('Contenedor del mapa no encontrado');
+    return false;
+  }
+
   try {
-    const mapContainer = document.getElementById('map');
-    if (!mapContainer) {
-      throw new Error('Contenedor del mapa no encontrado');
+    if (!map) {
+      map = L.map('map').setView([0, 0], 2);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: ' OpenStreetMap contributors'
+      }).addTo(map);
     }
-
-    map = L.map('map').setView([0, 0], 2);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: ' OpenStreetMap contributors'
-    }).addTo(map);
-
     return true;
   } catch (error) {
     console.error('Error inicializando el mapa:', error);
@@ -66,8 +68,12 @@ function updateMap(countryCode) {
     return;
   }
 
+  if (marker) {
+    map.removeLayer(marker);
+  }
+
+  marker = L.marker([coordinates.lat, coordinates.lng]).addTo(map);
   map.setView([coordinates.lat, coordinates.lng], 4);
-  L.marker([coordinates.lat, coordinates.lng]).addTo(map);
 }
 
 // Función para mostrar resultados
@@ -119,15 +125,13 @@ function displayResult(data) {
   }
 }
 
-// Inicializar la aplicación cuando el DOM esté listo
-document.addEventListener('DOMContentLoaded', () => {
+// Inicializar la aplicación cuando el DOM esté completamente cargado
+window.addEventListener('load', () => {
   try {
-    // Inicializar el mapa
     if (!initMap()) {
       throw new Error('Error al inicializar el mapa');
     }
 
-    // Configurar el evento del botón de validación
     const validateButton = document.getElementById('validate');
     if (!validateButton) {
       throw new Error('Botón de validación no encontrado');

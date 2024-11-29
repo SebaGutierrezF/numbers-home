@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 import { resolve } from 'path'
 
 export default defineConfig({
-  base: '/numbers-home/',
+  base: './',
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
@@ -18,8 +18,7 @@ export default defineConfig({
     cors: true,
     headers: {
       'Cross-Origin-Embedder-Policy': 'require-corp',
-      'Cross-Origin-Opener-Policy': 'same-origin',
-      'Permissions-Policy': 'interest-cohort=()'
+      'Cross-Origin-Opener-Policy': 'same-origin'
     }
   }
 })
