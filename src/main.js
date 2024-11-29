@@ -1,5 +1,8 @@
-import L from 'leaflet';
+// Importar estilos
 import './styles/main.css';
+
+let map = null;
+let marker = null;
 
 // Coordenadas de países
 const countryCoordinates = {
@@ -8,9 +11,6 @@ const countryCoordinates = {
   'ES': { lat: 40.4637, lng: -3.7492 },
   'CL': { lat: -35.6751, lng: -71.5430 },
 };
-
-let map = null;
-let marker = null;
 
 // Función para inicializar el mapa
 function initMap() {
@@ -22,14 +22,23 @@ function initMap() {
 
   try {
     if (!map) {
-      map = L.map('map').setView([0, 0], 2);
+      map = L.map('map', {
+        center: [0, 0],
+        zoom: 2
+      });
+
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: ' OpenStreetMap contributors'
       }).addTo(map);
+
+      // Forzar actualización del tamaño del mapa
+      setTimeout(() => {
+        map.invalidateSize();
+      }, 100);
     }
     return true;
   } catch (error) {
-    console.error('Error inicializando el mapa:', error);
+    console.error('Error al inicializar el mapa:', error);
     return false;
   }
 }
@@ -57,8 +66,15 @@ async function validatePhoneNumber(phoneNumber) {
 
 // Función para actualizar el mapa
 function updateMap(countryCode) {
-  if (!map) {
-    console.error('Mapa no inicializado');
+  const mapContainer = document.getElementById('map');
+  if (!mapContainer) return;
+
+  // Mostrar el contenedor del mapa
+  mapContainer.classList.remove('hidden');
+
+  // Asegurarse que el mapa esté inicializado
+  if (!map && !initMap()) {
+    console.error('No se pudo inicializar el mapa');
     return;
   }
 
@@ -68,12 +84,15 @@ function updateMap(countryCode) {
     return;
   }
 
+  // Eliminar marcador anterior si existe
   if (marker) {
     map.removeLayer(marker);
   }
 
+  // Añadir nuevo marcador y centrar el mapa
   marker = L.marker([coordinates.lat, coordinates.lng]).addTo(map);
   map.setView([coordinates.lat, coordinates.lng], 4);
+  map.invalidateSize();
 }
 
 // Función para mostrar resultados
@@ -120,58 +139,41 @@ function displayResult(data) {
   `;
 
   resultDiv.classList.remove('hidden');
+  
   if (data.country_code) {
     updateMap(data.country_code);
   }
 }
 
-// Inicializar la aplicación cuando el DOM esté completamente cargado
-window.addEventListener('load', () => {
-  try {
-    if (!initMap()) {
-      throw new Error('Error al inicializar el mapa');
-    }
+// Inicializar la aplicación cuando el DOM esté listo
+document.addEventListener('DOMContentLoaded', () => {
+  const validateButton = document.getElementById('validate');
+  const phoneInput = document.getElementById('phone');
 
-    const validateButton = document.getElementById('validate');
-    if (!validateButton) {
-      throw new Error('Botón de validación no encontrado');
-    }
-
-    validateButton.addEventListener('click', async () => {
-      const phoneInput = document.getElementById('phone');
-      if (!phoneInput) {
-        console.error('Elemento de entrada no encontrado');
-        return;
-      }
-
-      const phoneNumber = phoneInput.value.trim();
-      if (!phoneNumber) {
-        alert('Por favor ingresa un número telefónico');
-        return;
-      }
-
-      validateButton.disabled = true;
-      validateButton.textContent = 'Validando...';
-
-      try {
-        const result = await validatePhoneNumber(phoneNumber);
-        displayResult(result);
-      } catch (error) {
-        console.error('Error:', error);
-        displayResult({ error: 'Error al procesar la solicitud' });
-      } finally {
-        validateButton.disabled = false;
-        validateButton.textContent = 'Validar';
-      }
-    });
-  } catch (error) {
-    console.error('Error inicializando la aplicación:', error);
-    document.body.innerHTML = `
-      <div class="error-container">
-        <h1>Error</h1>
-        <p>Lo sentimos, ha ocurrido un error al cargar la aplicación.</p>
-        <p>Por favor, recarga la página o intenta más tarde.</p>
-      </div>
-    `;
+  if (!validateButton || !phoneInput) {
+    console.error('Elementos del formulario no encontrados');
+    return;
   }
+
+  validateButton.addEventListener('click', async () => {
+    const phoneNumber = phoneInput.value.trim();
+    if (!phoneNumber) {
+      alert('Por favor ingresa un número telefónico');
+      return;
+    }
+
+    validateButton.disabled = true;
+    validateButton.textContent = 'Validando...';
+
+    try {
+      const result = await validatePhoneNumber(phoneNumber);
+      displayResult(result);
+    } catch (error) {
+      console.error('Error:', error);
+      displayResult({ error: 'Error al procesar la solicitud' });
+    } finally {
+      validateButton.disabled = false;
+      validateButton.textContent = 'Validar';
+    }
+  });
 });
