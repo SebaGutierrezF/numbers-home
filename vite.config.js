@@ -2,10 +2,14 @@ import { defineConfig } from 'vite'
 import { resolve } from 'path'
 
 export default defineConfig({
-  base: '',
+  root: './',
+  base: '/numbers-home/',
+  publicDir: 'public',
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
+    emptyOutDir: true,
+    sourcemap: true,
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html')
@@ -13,12 +17,18 @@ export default defineConfig({
     }
   },
   server: {
+    host: true,
     port: 3000,
     open: true,
     cors: true,
-    headers: {
-      'Cross-Origin-Embedder-Policy': 'unsafe-none',
-      'Cross-Origin-Opener-Policy': 'same-origin'
+    strictPort: true,
+    hmr: {
+      overlay: false
+    }
+  },
+  resolve: {
+    alias: {
+      '@': resolve(__dirname, './src')
     }
   }
 })
