@@ -2,20 +2,24 @@ import { defineConfig } from 'vite'
 import { resolve } from 'path'
 
 export default defineConfig({
-  base: './',
+  base: '/numbers-home/',
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
-    emptyOutDir: true,
     rollupOptions: {
       input: {
-        main: resolve(__dirname, 'index.html'),
-      },
-    },
+        main: resolve(__dirname, 'index.html')
+      }
+    }
   },
   server: {
     port: 3000,
     open: true,
-    cors: true
+    cors: true,
+    headers: {
+      'Cross-Origin-Embedder-Policy': 'require-corp',
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Permissions-Policy': 'interest-cohort=()'
+    }
   }
 })
