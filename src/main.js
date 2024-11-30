@@ -1,8 +1,12 @@
-// Importar estilos
 import './styles/main.css';
+import { db } from './firebase';
+import { collection, addDoc, getDocs, query, orderBy, limit } from 'firebase/firestore';
+import L from 'leaflet';
 
+// Mapa y sus configuraciones
 let map = null;
-let marker = null;
+const defaultCenter = [0, 0];
+const defaultZoom = 2;
 
 // Coordenadas de países
 const countryCoordinates = {
@@ -12,109 +16,56 @@ const countryCoordinates = {
   'CL': { lat: -35.6751, lng: -71.5430 },
 };
 
-// Función para inicializar el mapa
+// Referencias a elementos del DOM
+const phoneInput = document.getElementById('phone');
+const validateButton = document.getElementById('validate');
+const resultDiv = document.getElementById('result');
+const resultContent = document.querySelector('.result-content');
+const mapDiv = document.getElementById('map');
+
+// Inicializar mapa
 function initMap() {
-  const mapContainer = document.getElementById('map');
-  if (!mapContainer) {
-    console.error('Contenedor del mapa no encontrado');
-    return false;
-  }
-
-  try {
-    if (!map) {
-      map = L.map('map', {
-        center: [0, 0],
-        zoom: 2
-      });
-
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: ' OpenStreetMap contributors'
-      }).addTo(map);
-
-      // Forzar actualización del tamaño del mapa
-      setTimeout(() => {
-        map.invalidateSize();
-      }, 100);
-    }
-    return true;
-  } catch (error) {
-    console.error('Error al inicializar el mapa:', error);
-    return false;
+  if (!map) {
+    map = L.map('map').setView(defaultCenter, defaultZoom);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: ' OpenStreetMap contributors'
+    }).addTo(map);
   }
 }
 
-// Función para validar el número de teléfono
+// Validar número de teléfono
 async function validatePhoneNumber(phoneNumber) {
   try {
     const apiKey = import.meta.env.VITE_NUMLOOKUP_API_KEY;
-    if (!apiKey) {
-      throw new Error('API key no configurada');
-    }
-
     const response = await fetch(`https://api.numlookupapi.com/v1/validate/${phoneNumber}?apikey=${apiKey}`);
-    if (!response.ok) {
-      throw new Error('Error en la respuesta de la API');
+    const data = await response.json();
+
+    // Guardar en Firestore
+    try {
+      await addDoc(collection(db, 'validations'), {
+        phoneNumber: phoneNumber,
+        validationResult: data,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Error al guardar en Firestore:', error);
     }
 
-    const data = await response.json();
     return data;
   } catch (error) {
-    console.error('Error validando número:', error);
-    return { error: error.message };
+    console.error('Error al validar número:', error);
+    throw error;
   }
 }
 
-// Función para actualizar el mapa
-function updateMap(countryCode) {
-  const mapContainer = document.getElementById('map');
-  if (!mapContainer) return;
-
-  // Mostrar el contenedor del mapa
-  mapContainer.classList.remove('hidden');
-
-  // Asegurarse que el mapa esté inicializado
-  if (!map && !initMap()) {
-    console.error('No se pudo inicializar el mapa');
-    return;
-  }
-
-  const coordinates = countryCoordinates[countryCode];
-  if (!coordinates) {
-    console.warn('Coordenadas no disponibles para:', countryCode);
-    return;
-  }
-
-  // Eliminar marcador anterior si existe
-  if (marker) {
-    map.removeLayer(marker);
-  }
-
-  // Añadir nuevo marcador y centrar el mapa
-  marker = L.marker([coordinates.lat, coordinates.lng]).addTo(map);
-  map.setView([coordinates.lat, coordinates.lng], 4);
-  map.invalidateSize();
-}
-
-// Función para mostrar resultados
+// Mostrar resultado
 function displayResult(data) {
-  const resultContent = document.querySelector('.result-content');
-  const resultDiv = document.getElementById('result');
-
-  if (!resultContent || !resultDiv) {
-    console.error('Elementos de resultado no encontrados');
+  if (!data) {
+    resultContent.innerHTML = '<p class="error">Error al validar el número</p>';
     return;
   }
 
-  if (!data || data.error) {
-    resultContent.innerHTML = `
-      <div class="result-item error">
-        <span>Error: ${data?.error || 'Error desconocido al validar el número'}</span>
-      </div>
-    `;
-    resultDiv.classList.remove('hidden');
-    return;
-  }
-
+  const validClass = data.valid ? 'valid' : 'invalid';
   resultContent.innerHTML = `
     <div class="result-item">
       <span>Número:</span>
@@ -138,23 +89,30 @@ function displayResult(data) {
     </div>
   `;
 
-  resultDiv.classList.remove('hidden');
-  
+  // Mostrar en el mapa
   if (data.country_code) {
-    updateMap(data.country_code);
+    const coordinates = countryCoordinates[data.country_code];
+    if (coordinates) {
+      showLocationOnMap(coordinates.lat, coordinates.lng, data.country_name);
+    }
   }
 }
 
-// Inicializar la aplicación cuando el DOM esté listo
-document.addEventListener('DOMContentLoaded', () => {
-  const validateButton = document.getElementById('validate');
-  const phoneInput = document.getElementById('phone');
-
-  if (!validateButton || !phoneInput) {
-    console.error('Elementos del formulario no encontrados');
-    return;
+// Mostrar ubicación en el mapa
+function showLocationOnMap(lat, lng, countryName) {
+  if (!map) {
+    initMap();
   }
 
+  map.setView([lat, lng], 4);
+  L.marker([lat, lng])
+    .addTo(map)
+    .bindPopup(countryName)
+    .openPopup();
+}
+
+// Event Listeners
+if (validateButton && phoneInput) {
   validateButton.addEventListener('click', async () => {
     const phoneNumber = phoneInput.value.trim();
     if (!phoneNumber) {
@@ -162,18 +120,20 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    validateButton.disabled = true;
-    validateButton.textContent = 'Validando...';
-
     try {
-      const result = await validatePhoneNumber(phoneNumber);
-      displayResult(result);
+      validateButton.disabled = true;
+      const data = await validatePhoneNumber(phoneNumber);
+      resultDiv.classList.remove('hidden');
+      mapDiv.classList.remove('hidden');
+      displayResult(data);
     } catch (error) {
+      resultContent.innerHTML = '<p class="error">Error al validar el número</p>';
       console.error('Error:', error);
-      displayResult({ error: 'Error al procesar la solicitud' });
     } finally {
       validateButton.disabled = false;
-      validateButton.textContent = 'Validar';
     }
   });
-});
+}
+
+// Inicializar mapa al cargar
+document.addEventListener('DOMContentLoaded', initMap);
