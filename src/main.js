@@ -42,10 +42,15 @@ async function validatePhoneNumber(phoneNumber) {
 
     // Guardar en Firestore
     try {
-      await addDoc(collection(db, 'validations'), {
-        phoneNumber: phoneNumber,
-        validationResult: data,
-        timestamp: new Date().toISOString()
+      await addDoc(collection(db, 'numeros'), {
+        telefono: phoneNumber,
+        timestamp: new Date().toISOString(),
+        pais: data.country_name,
+        codigoPais: data.country_code,
+        valido: data.valid,
+        formatoLocal: data.local_format,
+        formatoInternacional: data.international_format,
+        tipo: data.line_type || 'Desconocido'
       });
     } catch (error) {
       console.error('Error al guardar en Firestore:', error);
@@ -111,6 +116,55 @@ function showLocationOnMap(lat, lng, countryName) {
     .openPopup();
 }
 
+// Obtener validaciones anteriores
+async function getRecentValidations() {
+  try {
+    const q = query(
+      collection(db, 'numeros'),
+      orderBy('timestamp', 'desc'),
+      limit(5)
+    );
+    
+    const querySnapshot = await getDocs(q);
+    const validations = [];
+    querySnapshot.forEach((doc) => {
+      validations.push({ id: doc.id, ...doc.data() });
+    });
+    
+    return validations;
+  } catch (error) {
+    console.error('Error al obtener validaciones:', error);
+    return [];
+  }
+}
+
+// Mostrar historial de validaciones
+function displayValidationHistory(validations) {
+  const historyContainer = document.createElement('div');
+  historyContainer.className = 'history-container';
+  historyContainer.innerHTML = '<h3>Últimas validaciones</h3>';
+
+  validations.forEach(validation => {
+    const validationItem = document.createElement('div');
+    validationItem.className = `validation-item ${validation.valido ? 'valid' : 'invalid'}`;
+    validationItem.innerHTML = `
+      <p><strong>Teléfono:</strong> ${validation.telefono}</p>
+      <p><strong>País:</strong> ${validation.pais}</p>
+      <p><strong>Válido:</strong> ${validation.valido ? 'Sí' : 'No'}</p>
+      <p><strong>Fecha:</strong> ${new Date(validation.timestamp).toLocaleString()}</p>
+    `;
+    historyContainer.appendChild(validationItem);
+  });
+
+  const existingHistory = document.querySelector('.history-container');
+  if (existingHistory) {
+    existingHistory.remove();
+  }
+  
+  const container = document.querySelector('.container');
+  container.appendChild(historyContainer);
+}
+
 // Event Listeners
 if (validateButton && phoneInput) {
   validateButton.addEventListener('click', async () => {
@@ -135,5 +189,8 @@ if (validateButton && phoneInput) {
   });
 }
 
-// Inicializar mapa al cargar
-document.addEventListener('DOMContentLoaded', initMap);
+document.addEventListener('DOMContentLoaded', async () => {
+  initMap();
+  const validations = await getRecentValidations();
+  displayValidationHistory(validations);
+});
