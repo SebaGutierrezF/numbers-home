@@ -3,7 +3,7 @@ import { resolve } from 'path'
 
 export default defineConfig({
   root: './',
-  base: '/numbers-home/',
+  base: './',
   publicDir: 'public',
   build: {
     outDir: 'dist',
@@ -13,12 +13,17 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html')
+      },
+      output: {
+        assetFileNames: 'assets/[name].[hash][extname]',
+        chunkFileNames: 'assets/[name].[hash].js',
+        entryFileNames: 'assets/[name].[hash].js'
       }
     }
   },
   server: {
     host: true,
-    port: 3000,
+    port: process.env.PORT || 3000,
     open: true,
     cors: true,
     strictPort: true,
