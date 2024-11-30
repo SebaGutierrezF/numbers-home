@@ -2,13 +2,10 @@ import { defineConfig } from 'vite'
 import { resolve } from 'path'
 
 export default defineConfig({
-  root: './',
-  base: './',
-  publicDir: 'public',
+  base: '/numbers-home/',
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
-    emptyOutDir: true,
     sourcemap: true,
     rollupOptions: {
       input: {
@@ -23,17 +20,6 @@ export default defineConfig({
   },
   server: {
     host: true,
-    port: process.env.PORT || 3000,
-    open: true,
-    cors: true,
-    strictPort: true,
-    hmr: {
-      overlay: false
-    }
-  },
-  resolve: {
-    alias: {
-      '@': resolve(__dirname, './src')
-    }
+    port: process.env.PORT || 3000
   }
 })
